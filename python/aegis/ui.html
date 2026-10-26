@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aegis</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121410;
+      --panel: #1b1e18;
+      --line: #2c3128;
+      --text: #e7e4d8;
+      --muted: #a3a89a;
+      --hot: #2f6f4e;
+      --hot-ran: #d7e2c8;
+      --warm: #c6a15a;
+      --overflow: #8fbf9a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.45 "Avenir Next", "Segoe UI", sans-serif;
+    }
+    main { max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 32px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.03em; }
+    h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+    p.lead { margin: 0 0 20px; max-width: 62ch; color: var(--muted); }
+    button.run {
+      background: var(--text);
+      color: var(--bg);
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.run:disabled { opacity: 0.6; cursor: wait; }
+    .error { color: #e7b3a2; margin-top: 12px; }
+    section { margin-top: 28px; }
+    ol.steps { margin: 0; padding-left: 1.2em; }
+    ol.steps li { margin: 0 0 8px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+    .stat b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .layout { display: grid; grid-template-columns: 1.4fr 0.8fr; gap: 18px; align-items: start; }
+    .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+    .cell {
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font: 11px/1.1 inherit;
+      cursor: pointer;
+      padding: 0;
+    }
+    .cell.hot { background: var(--hot); color: #f3f7f1; border-color: transparent; }
+    .cell.warm { background: transparent; color: var(--warm); border-color: var(--warm); }
+    .cell.overflow { background: var(--overflow); color: #142018; border-color: transparent; }
+    .cell.ran { outline: 2px solid var(--hot-ran); outline-offset: 1px; }
+    .cell.selected { box-shadow: inset 0 0 0 2px var(--text); }
+    .legend { display: flex; gap: 14px; color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+    .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+    .swatch.hot { background: var(--hot); }
+    .swatch.warm { border: 1px solid var(--warm); }
+    .swatch.ran { outline: 2px solid var(--hot-ran); }
+    .swatch.overflow { background: var(--overflow); }
+    .detail, .trace { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+    .detail p { margin: 0 0 8px; }
+    .trace { margin-top: 12px; }
+    .event { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+    .event:first-of-type { border-top: 0; }
+    .event code { color: var(--hot-ran); }
+    .hash { color: var(--muted); font-size: 12px; }
+    .hidden { display: none; }
+    @media (max-width: 800px) {
+      .stats, .layout { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Aegis</h1>
+    <p class="lead">Sixty-four agents stay resident. A sixty-fifth forces one out. Two tool calls are traced, then replayed.</p>
+    <button class="run" id="run" type="button">Run the demo</button>
+    <p class="error hidden" id="error"></p>
+
+    <section id="result" class="hidden">
+      <h2>What happened</h2>
+      <ol class="steps" id="steps"></ol>
+
+      <section>
+        <h2>This run</h2>
+        <div class="stats" id="stats"></div>
+      </section>
+
+      <section>
+        <h2>Agents</h2>
+        <div class="layout">
+          <div>
+            <div class="grid" id="grid"></div>
+            <p class="legend">
+              <span><i class="swatch hot"></i>resident</span>
+              <span><i class="swatch ran"></i>ran a tool</span>
+              <span><i class="swatch warm"></i>demoted</span>
+              <span><i class="swatch overflow"></i>the extra agent</span>
+            </p>
+          </div>
+          <div class="detail" id="detail"></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Trace</h2>
+        <div class="trace" id="trace"></div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const runButton = document.querySelector("#run");
+    const result = document.querySelector("#result");
+    const error = document.querySelector("#error");
+    let current = null;
+
+    runButton.addEventListener("click", async () => {
+      runButton.disabled = true;
+      runButton.textContent = "Running";
+      error.classList.add("hidden");
+      try {
+        const response = await fetch("/api/run", { method: "POST" });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "run failed");
+        current = payload;
+        render(payload);
+      } catch (err) {
+        error.textContent = err.message;
+        error.classList.remove("hidden");
+      } finally {
+        runButton.disabled = false;
+        runButton.textContent = "Run again";
+      }
+    });
+
+    function render(data) {
+      result.classList.remove("hidden");
+      const demoted = data.demoted || "a resident";
+      document.querySelector("#steps").innerHTML = [
+        `The budget holds ${data.slots} agents. All ${data.slots} were admitted with no eviction.`,
+        `agent-00 ran echo and returned ${data.echo}. agent-01 ran add and returned ${data.add}.`,
+        `agent-overflow needed a slot, so ${demoted} was demoted. Resident tokens stayed at ${data.hot_tokens.toLocaleString()}.`,
+        `Replay matched the recorded outputs, and the hash chain ${data.chain_ok ? "verified" : "failed"}.`
+      ].map((line) => `<li>${line}</li>`).join("");
+
+      const bench = data.bench;
+      const isolation = bench
+        ? `${Number(bench.mean_us).toFixed(2)} μs`
+        : "not measured";
+      const cards = [
+        [String(data.slots), "resident slots"],
+        [String(data.evictions_after_overflow), "eviction after the 65th"],
+        [`${data.echo} / ${data.add}`, "echo and add"],
+        [isolation, "fresh sandbox, mean"]
+      ];
+      document.querySelector("#stats").innerHTML = cards.map(([value, label]) =>
+        `<div class="stat"><b>${value}</b><span>${label}</span></div>`
+      ).join("");
+
+      const grid = document.querySelector("#grid");
+      grid.innerHTML = "";
+      for (const agent of data.agents) {
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "cell " + (agent.id === "agent-overflow" ? "overflow" : agent.tier);
+        if (agent.tool) cell.classList.add("ran");
+        cell.textContent = agent.id.replace("agent-", "");
+        cell.setAttribute("aria-label", agent.id);
+        cell.addEventListener("click", () => select(agent.id));
+        grid.appendChild(cell);
+      }
+      select(data.demoted || data.agents[0].id);
+      renderTrace(data);
+    }
+
+    function select(id) {
+      const agent = current.agents.find((item) => item.id === id);
+      for (const cell of document.querySelectorAll(".cell")) {
+        cell.classList.toggle("selected", cell.getAttribute("aria-label") === id);
+      }
+      const lines = [
+        `<p><b>${agent.id}</b> is ${agent.tier}.</p>`,
+        `<p>Hot tokens: ${agent.hot_tokens.toLocaleString()}.</p>`
+      ];
+      if (agent.tool) lines.push(`<p>It ran <b>${agent.tool}</b> during this session.</p>`);
+      if (agent.id === current.demoted && current.summary_block) {
+        lines.push(`<p>Summary kept in memory: ${escapeText(current.summary_block.slice(0, 180))}</p>`);
+      }
+      document.querySelector("#detail").innerHTML = lines.join("");
+    }
+
+    function renderTrace(data) {
+      const trace = document.querySelector("#trace");
+      trace.innerHTML = data.events.map((event) => {
+        let text = `${event.agent_id} ${event.kind}`;
+        if (event.kind === "sample") text = `${event.agent_id} sampled with seed ${event.seed}`;
+        if (event.kind === "tool_call") text = `${event.agent_id} called ${event.tool} ${JSON.stringify(event.arguments)}`;
+        if (event.kind === "tool_output") text = `${event.agent_id} ${event.tool} returned ${event.output}`;
+        return `<div class="event">${escapeText(text)} <div class="hash">${event.hash}</div></div>`;
+      }).join("");
+    }
+
+    function escapeText(value) {
+      return value.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+    }
+  </script>
+</body>
+</html>

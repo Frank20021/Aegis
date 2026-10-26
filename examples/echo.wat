@@ -1,0 +1,11 @@
+(module
+  (import "aegis" "input_len" (func $input_len (result i32)))
+  (import "aegis" "read_input" (func $read_input (param i32 i32) (result i32)))
+  (import "aegis" "write_output" (func $write_output (param i32 i32)))
+  (memory (export "memory") 1)
+  (func (export "run") (result i32)
+    (local $n i32)
+    (local.set $n (call $input_len))
+    (drop (call $read_input (i32.const 0) (local.get $n)))
+    (call $write_output (i32.const 0) (local.get $n))
+    i32.const 0))

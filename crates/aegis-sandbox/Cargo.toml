@@ -1,0 +1,11 @@
+[package]
+name = "aegis-sandbox"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Wasmtime isolation for untrusted agent tools"
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+wasmtime.workspace = true

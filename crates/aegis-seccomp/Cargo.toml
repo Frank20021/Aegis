@@ -1,0 +1,12 @@
+[package]
+name = "aegis-seccomp"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "seccomp-BPF profile for the Aegis sandbox worker"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+
+[dependencies]
+thiserror.workspace = true

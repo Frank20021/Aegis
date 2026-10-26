@@ -1,0 +1,11 @@
+[package]
+name = "aegis-shm"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Shared-memory SPSC ring buffer for tool results"
+
+[dependencies]
+crc32fast.workspace = true
+memmap2.workspace = true
+thiserror.workspace = true

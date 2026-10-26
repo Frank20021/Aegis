@@ -1,0 +1,22 @@
+[package]
+name = "aegis-runtime"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Aegis sandbox worker, benchmarks, and seccomp self-test"
+
+[[bin]]
+name = "aegis"
+path = "src/main.rs"
+
+[dependencies]
+aegis-sandbox = { path = "../aegis-sandbox" }
+aegis-seccomp = { path = "../aegis-seccomp" }
+aegis-shm = { path = "../aegis-shm" }
+anyhow.workspace = true
+base64.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
